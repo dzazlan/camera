@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#000000">
+  <title>Camera</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <main class="app">
+    <div class="viewfinder">
+      <video id="video" autoplay playsinline muted></video>
+      <div id="flash" class="flash"></div>
+      <div id="message" class="message" hidden></div>
+      <div id="rec-indicator" class="rec-indicator" hidden>
+        <span class="dot"></span><span id="rec-time">00:00</span>
+      </div>
+    </div>
+
+    <div class="modes" role="tablist">
+      <button class="mode active" data-mode="photo" role="tab" aria-selected="true">Photo</button>
+      <button class="mode" data-mode="video" role="tab" aria-selected="false">Video</button>
+    </div>
+
+    <div class="controls">
+      <button id="gallery-btn" class="thumb" aria-label="Open gallery">
+        <img id="last-thumb" alt="" hidden>
+      </button>
+      <button id="shutter" class="shutter" aria-label="Take photo"></button>
+      <button id="switch" class="icon-btn" aria-label="Switch camera">
+        <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M20 7h-3l-2-3H9L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2z"/>
+          <path d="M9 13a3 3 0 0 1 5.5-1.7M15 14a3 3 0 0 1-5.5 1.7"/>
+          <path d="M14.5 9.5v2h-2M9.5 18.5v-2h2"/>
+        </svg>
+      </button>
+    </div>
+  </main>
+
+  <dialog id="gallery" class="gallery">
+    <header>
+      <h2>Gallery</h2>
+      <button id="close-gallery" class="text-btn">Close</button>
+    </header>
+    <div id="gallery-grid" class="grid"></div>
+    <p id="gallery-empty" class="empty">No photos or videos yet.</p>
+  </dialog>
+
+  <dialog id="viewer" class="viewer">
+    <div id="viewer-media" class="viewer-media"></div>
+    <footer>
+      <button id="viewer-close" class="text-btn">Back</button>
+      <a id="viewer-download" class="text-btn" download>Download</a>
+      <button id="viewer-delete" class="text-btn danger">Delete</button>
+    </footer>
+  </dialog>
+
+  <canvas id="canvas" hidden></canvas>
+  <script src="app.js"></script>
+</body>
+</html>
