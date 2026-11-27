@@ -341,7 +341,7 @@ function layout(){
  let A;if(a==='2.39')A=2.39;else if(a==='Full')A=innerWidth/innerHeight;else{const[w,h]=a.split(':').map(Number);A=portrait?h/w:w/h}
  let cw,ch;if(vw/vh>A){ch=vh;cw=vh*A}else{cw=vw;ch=vw/A}
  hcrop={x:(vw-cw/zoom)/2,y:(vh-ch/zoom)/2,w:cw/zoom,h:ch/zoom};
- const cap=st.mode==='video'?1920:st.mode==='hdr'?2304:4096,s=Math.min(1,cap/Math.max(cw,ch));
+ const cap=st.mode==='video'?1920:st.mode==='hdr'?2048:4096,s=Math.min(1,cap/Math.max(cw,ch));
  const W=Math.round(cw*s/2)*2,H=Math.round(ch*s/2)*2;
  if(!recorder&&(cv.width!==W||cv.height!==H)){cv.width=W;cv.height=H}
  outW=cv.width;outH=cv.height;gl.viewport(0,0,outW,outH);
@@ -573,23 +573,42 @@ async function captureHDR(){
    rad[j*3]+=LIN[r]/g*w;rad[j*3+1]+=LIN[gg]/g*w;rad[j*3+2]+=LIN[b]/g*w;ws[j]+=w}}
  });
  frames.length=0;
- // local tone-map on log luminance: blurred base gets compressed, detail is kept
- const s=st.grade.hdr,L=new Float32Array(N),lg=new Float32Array(N);
- for(let j=0;j<N;j++){const w=ws[j]||1e-6;rad[j*3]/=w;rad[j*3+1]/=w;rad[j*3+2]/=w;L[j]=.2126*rad[j*3]+.7152*rad[j*3+1]+.0722*rad[j*3+2]+1e-5;lg[j]=Math.log2(L[j])}
- const f=8,lw=Math.ceil(W/f),lh=Math.ceil(H/f);let low=new Float32Array(lw*lh);const cnt=new Float32Array(lw*lh);
- for(let y=0;y<H;y++)for(let x=0;x<W;x++){const k=((y/f)|0)*lw+((x/f)|0);low[k]+=lg[y*W+x];cnt[k]++}
- for(let k=0;k<low.length;k++)low[k]/=cnt[k];
- const blur=(a,horiz)=>{const o=new Float32Array(a.length),r=3;for(let y=0;y<lh;y++)for(let x=0;x<lw;x++){let t=0,n=0;for(let q=-r;q<=r;q++){const xx=horiz?x+q:x,yy=horiz?y:y+q;if(xx>=0&&xx<lw&&yy>=0&&yy<lh){t+=a[yy*lw+xx];n++}}o[y*lw+x]=t/n}return o};
- for(let p=0;p<3;p++)low=blur(blur(low,true),false);
- const sorted=Float32Array.from(low).sort(),p1=sorted[(sorted.length*.01)|0],p99=sorted[(sorted.length*.995)|0];
- let c=Math.min(1,5.5/Math.max(p99-p1,.01));c=1-s*(1-c);const boost=1+.35*s;
+ // exposure fusion (Mertens): virtual -EV / 0 / +EV versions of the merged frame are blended
+ // per region by detail and good exposure, using Laplacian pyramids so seams and halos don't show.
+ const s=st.grade.hdr,Yl=new Float32Array(N);
+ for(let j=0;j<N;j++){const w=ws[j]||1e-6;rad[j*3]/=w;rad[j*3+1]/=w;rad[j*3+2]/=w;Yl[j]=.2126*rad[j*3]+.7152*rad[j*3+1]+.0722*rad[j*3+2]}
+ const ENC=new Float32Array(4097).map((_,i)=>Math.pow(i/4096,1/2.2));
+ const enc=v=>ENC[v>=1?4096:(v*4096)|0];
+ // a darker version only helps when real brackets captured extra highlight detail; from a stack it would just grey out white areas
+ const EVS=gmax/gmin>2?[-(1+s),0,1+s,2+2*s]:[0,1+s,2+2*s],K=EVS.length;
+ const Ys=EVS.map(ev=>{const g=Math.pow(2,ev),a=new Float32Array(N);for(let j=0;j<N;j++)a[j]=enc(Yl[j]*g);return a});
+ const Ws=Ys.map(Y=>{const a=new Float32Array(N);
+  for(let y=0;y<H;y++)for(let x=0;x<W;x++){const j=y*W+x,v=Y[j];
+   const lap=Math.abs(4*v-Y[y?j-W:j]-Y[y<H-1?j+W:j]-Y[x?j-1:j]-Y[x<W-1?j+1:j]);
+   const e=Math.exp(-(v-.5)*(v-.5)/.08);a[j]=(lap+.012)*e+1e-7}return a});
+ for(let j=0;j<N;j++){let t=0;for(let k=0;k<K;k++)t+=Ws[k][j];for(let k=0;k<K;k++)Ws[k][j]/=t}
+ const down=(a,w,h)=>{const w2=(w+1)>>1,h2=(h+1)>>1,t=new Float32Array(w2*h),o=new Float32Array(w2*h2);
+  for(let y=0;y<h;y++){const r=y*w;for(let i=0;i<w2;i++){const x=i*2,a0=a[r+Math.max(x-2,0)],a1=a[r+Math.max(x-1,0)],a3=a[r+Math.min(x+1,w-1)],a4=a[r+Math.min(x+2,w-1)];t[y*w2+i]=(a0+4*a1+6*a[r+x]+4*a3+a4)/16}}
+  for(let i=0;i<h2;i++){const y=i*2,r0=Math.max(y-2,0)*w2,r1=Math.max(y-1,0)*w2,r2=y*w2,r3=Math.min(y+1,h-1)*w2,r4=Math.min(y+2,h-1)*w2;for(let x=0;x<w2;x++)o[i*w2+x]=(t[r0+x]+4*t[r1+x]+6*t[r2+x]+4*t[r3+x]+t[r4+x])/16}
+  return{a:o,w:w2,h:h2}};
+ const up=(c,w,h)=>{const o=new Float32Array(w*h),cw=c.w,chh=c.h,ca=c.a;
+  for(let y=0;y<h;y++){const fy=Math.min(y/2,chh-1),y0=fy|0,y1=Math.min(y0+1,chh-1),ty=fy-y0;
+   for(let x=0;x<w;x++){const fx=Math.min(x/2,cw-1),x0=fx|0,x1=Math.min(x0+1,cw-1),tx=fx-x0;
+    o[y*w+x]=(ca[y0*cw+x0]*(1-tx)+ca[y0*cw+x1]*tx)*(1-ty)+(ca[y1*cw+x0]*(1-tx)+ca[y1*cw+x1]*tx)*ty}}return o};
+ const nl=Math.max(2,Math.floor(Math.log2(Math.min(W,H)))-3);
+ const gauss=a=>{const p=[{a,w:W,h:H}];for(let l=1;l<nl;l++){const q=p[l-1];p.push(down(q.a,q.w,q.h))}return p};
+ const F=gauss(new Float32Array(N)).map(q=>({a:new Float32Array(q.a.length),w:q.w,h:q.h}));
+ for(let k=0;k<K;k++){const GY=gauss(Ys[k]),GW=gauss(Ws[k]);
+  for(let l=0;l<nl;l++){const g=GY[l],u=l<nl-1?up(GY[l+1],g.w,g.h):null,fa=F[l].a,wa=GW[l].a;
+   for(let i=0;i<fa.length;i++)fa[i]+=wa[i]*(u?g.a[i]-u[i]:g.a[i])}
+  Ys[k]=null;Ws[k]=null;await wait(0)}
+ let R=F[nl-1].a;for(let l=nl-2;l>=0;l--){const u=up({a:R,w:F[l+1].w,h:F[l+1].h},F[l].w,F[l].h),fa=F[l].a;for(let i=0;i<fa.length;i++)u[i]+=fa[i];R=u}
+ // put colour back: scale linear RGB to the fused luminance, roll bright colours toward white instead of clipping
  const out=ctx.createImageData(W,H),o=out.data;
- for(let y=0;y<H;y++){const fy=Math.min(lh-1.001,Math.max(0,y/f-.5)),y0=fy|0,ty=fy-y0;
-  for(let x=0;x<W;x++){const fx=Math.min(lw-1.001,Math.max(0,x/f-.5)),x0=fx|0,tx=fx-x0,k=y0*lw+x0;
-   const base=(low[k]*(1-tx)+low[k+1]*tx)*(1-ty)+(low[k+lw]*(1-tx)+low[k+lw+1]*tx)*ty;
-   const j=y*W+x,lo=Math.pow(2,(base-p99)*c+(lg[j]-base)*boost),lt=1-Math.exp(-lo*(2.2+1.4*s)),ratio=lt/L[j];
-   for(let ch=0;ch<3;ch++){let v=rad[j*3+ch]*ratio;v=lt+(v-lt)*1.06;o[j*4+ch]=GAM[Math.min(4095,Math.max(0,(v*4095)|0))]}
-   o[j*4+3]=255}}
+ for(let j=0;j<N;j++){const yo=Math.pow(Math.min(1,Math.max(0,R[j])),2.2),ratio=yo/Math.max(Yl[j],1e-6);
+  let r=rad[j*3]*ratio,g=rad[j*3+1]*ratio,b=rad[j*3+2]*ratio;const m=Math.max(r,g,b);
+  if(m>1){const t=Math.min(1,(m-1)/m);r+=(yo-r)*t;g+=(yo-g)*t;b+=(yo-b)*t;const m2=Math.max(r,g,b);if(m2>1){r/=m2;g/=m2;b/=m2}}
+  o[j*4]=GAM[Math.max(0,(r*4095)|0)];o[j*4+1]=GAM[Math.max(0,(g*4095)|0)];o[j*4+2]=GAM[Math.max(0,(b*4095)|0)];o[j*4+3]=255}
  ctx.putImageData(out,0,0);
  // run the merged image through the selected look, then save
  hold=true;gl.viewport(0,0,W,H);gl.uniform2f(U.O,0,0);gl.uniform2f(U.S,1,1);
