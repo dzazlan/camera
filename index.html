@@ -42,6 +42,11 @@ canvas#cv{display:block;background:#000}
 .hud{position:absolute;left:50%;top:calc(env(safe-area-inset-top) + 66px);transform:translateX(-50%);display:flex;gap:8px;pointer-events:none}
 .tag{background:rgba(0,0,0,.55);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);padding:4px 10px;border-radius:12px;font-size:12px;font-weight:600;white-space:nowrap}
 .rec{background:var(--red);display:none}.rec.show{display:block}
+.busy{position:absolute;inset:0;display:none;place-items:center;background:rgba(0,0,0,.45);pointer-events:none}
+.busy.show{display:grid}
+.busy div{background:rgba(0,0,0,.7);padding:12px 18px;border-radius:14px;font-weight:600;display:flex;gap:10px;align-items:center}
+.busy i{width:18px;height:18px;border-radius:50%;border:2px solid #fff;border-right-color:transparent;animation:sp .8s linear infinite}
+@keyframes sp{to{transform:rotate(1turn)}}
 .count{position:absolute;inset:0;display:grid;place-items:center;font-size:96px;font-weight:200;pointer-events:none;text-shadow:0 2px 20px #000}
 .zoomtag{opacity:0;transition:opacity .4s}.zoomtag.show{opacity:1}
 .bottom{position:fixed;left:0;right:0;bottom:0;z-index:5;padding:36px env(safe-area-inset-right) calc(12px + env(safe-area-inset-bottom)) env(safe-area-inset-left);
@@ -179,6 +184,7 @@ input[type=range]{width:100%;accent-color:var(--ink);height:28px}
   <div class="fring" id="fring"><i></i><b>☀</b></div>
   <div class="hud"><span class="tag rec" id="recTag">● 00:00</span><span class="tag zoomtag" id="zoomTag">1.0×</span></div>
   <div class="count" id="count"></div>
+  <div class="busy" id="busy"><div><i></i><span id="busyText">Hold still…</span></div></div>
 </div>
 
 <div class="bottom" id="bottom">
@@ -186,7 +192,7 @@ input[type=range]{width:100%;accent-color:var(--ink);height:28px}
   <div class="looks" id="looks"></div>
   <div class="mf" id="mf"><span>NEAR</span><input type="range" id="mfR" aria-label="Manual focus"><span>FAR</span></div>
   <div class="lenses" id="lenses"></div>
-  <div class="modes" id="modes"><button data-m="photo">PHOTO</button><button data-m="video">VIDEO</button></div>
+  <div class="modes" id="modes"><button data-m="photo">PHOTO</button><button data-m="hdr">HDR</button><button data-m="video">VIDEO</button></div>
   <div class="row">
     <button class="thumb" id="thumb" aria-label="Gallery"></button>
     <button class="shutter" id="shutter" aria-label="Shutter"><i></i></button>
@@ -257,12 +263,12 @@ const VID={
  golden:{name:'Golden',d:'Warm sunset',p:{sat:1,con:.2,warm:.08,hi:[.06,.03,-.04],roll:.5,vig:.15}},
  bleach:FILM.bleach,chrome:FILM.chrome,mono:FILM.mono,
 };
-const LOOKS={photo:FILM,video:VID};
-const ASPECTS={photo:['Full','3:2','4:3','1:1','16:9'],video:['Full','16:9','2.39','4:3']};
-const GRADE=[['exp','Exposure',-2,2,.05],['con','Contrast',-.4,.6,.01],['sat','Saturation',-1,1,.01],['temp','Warmth',-1,1,.01],['tint','Tint',-1,1,.01],['fade','Fade',0,.25,.005],['grain','Grain',-.2,.8,.01],['vig','Vignette',-.3,.7,.01],['mix','Look strength',0,1,.01]];
-const G0={exp:0,con:0,sat:0,temp:0,tint:0,fade:0,grain:0,vig:0,mix:1};
+const LOOKS={photo:FILM,hdr:FILM,video:VID};
+const ASPECTS={photo:['Full','3:2','4:3','1:1','16:9'],hdr:['Full','3:2','4:3','1:1','16:9'],video:['Full','16:9','2.39','4:3']};
+const GRADE=[['hdr','HDR strength',0,1,.01],['exp','Exposure',-2,2,.05],['con','Contrast',-.4,.6,.01],['sat','Saturation',-1,1,.01],['temp','Warmth',-1,1,.01],['tint','Tint',-1,1,.01],['fade','Fade',0,.25,.005],['grain','Grain',-.2,.8,.01],['vig','Vignette',-.3,.7,.01],['mix','Look strength',0,1,.01]];
+const G0={hdr:.7,exp:0,con:0,sat:0,temp:0,tint:0,fade:0,grain:0,vig:0,mix:1};
 
-let st={mode:'photo',facing:'environment',lens:null,look:{photo:'standard',video:'print'},aspect:{photo:'3:2',video:'16:9'},grid:false,timer:0,review:false,autosave:false,focus:'auto',grade:{...G0}};
+let st={mode:'photo',facing:'environment',lens:null,look:{photo:'standard',hdr:'standard',video:'print'},aspect:{photo:'3:2',hdr:'3:2',video:'16:9'},grid:false,timer:0,review:false,autosave:false,focus:'auto',grade:{...G0}};
 try{const s=JSON.parse(localStorage.getItem('dzcam')||'null');if(s)st={...st,...s,grade:{...G0,...s.grade},look:{...st.look,...s.look},aspect:{...st.aspect,...s.aspect}}}catch(e){}
 const save=()=>{try{localStorage.setItem('dzcam',JSON.stringify({...st,lens:null}))}catch(e){}};
 let zoom=1,tapExp=0,crop={sx:1,sy:1,ox:0,oy:0},camCaps={};
@@ -326,7 +332,7 @@ function setUniforms(){
  f(U.uGrain,clamp(p.grain+g.grain,0,1));f(U.uVig,clamp(p.vig+g.vig,0,1));f(U.uLog,p.log);f(U.uMix,g.mix);f(U.uSeed,Math.random()*100);
  gl.uniform3fv(U.uSh,p.sh);gl.uniform3fv(U.uHi,p.hi);gl.uniform3fv(U.uMw,p.mw);
 }
-let geo='';let outW=16,outH=9;
+let geo='';let outW=16,outH=9,hcrop=null,hold=false;
 function layout(){
  const vw=vid.videoWidth,vh=vid.videoHeight;if(!vw)return;
  const key=[vw,vh,st.mode,st.aspect[st.mode],zoom,innerWidth,innerHeight].join();
@@ -334,7 +340,8 @@ function layout(){
  const a=st.aspect[st.mode],portrait=vh>vw;
  let A;if(a==='2.39')A=2.39;else if(a==='Full')A=innerWidth/innerHeight;else{const[w,h]=a.split(':').map(Number);A=portrait?h/w:w/h}
  let cw,ch;if(vw/vh>A){ch=vh;cw=vh*A}else{cw=vw;ch=vw/A}
- const cap=st.mode==='video'?1920:4096,s=Math.min(1,cap/Math.max(cw,ch));
+ hcrop={x:(vw-cw/zoom)/2,y:(vh-ch/zoom)/2,w:cw/zoom,h:ch/zoom};
+ const cap=st.mode==='video'?1920:st.mode==='hdr'?2304:4096,s=Math.min(1,cap/Math.max(cw,ch));
  const W=Math.round(cw*s/2)*2,H=Math.round(ch*s/2)*2;
  if(!recorder&&(cv.width!==W||cv.height!==H)){cv.width=W;cv.height=H}
  outW=cv.width;outH=cv.height;gl.viewport(0,0,outW,outH);
@@ -345,7 +352,7 @@ function fit(){const r=$('stage').getBoundingClientRect(),k=Math.min(r.width/out
 addEventListener('resize',()=>{geo=''});
 function frame(){
  requestAnimationFrame(frame);
- if(vid.readyState<2||!vid.videoWidth)return;
+ if(hold||vid.readyState<2||!vid.videoWidth)return;
  layout();
  gl.texImage2D(gl.TEXTURE_2D,0,gl.RGB,gl.RGB,gl.UNSIGNED_BYTE,vid);
  setUniforms();gl.drawArrays(gl.TRIANGLE_STRIP,0,4);
@@ -355,7 +362,7 @@ function frame(){
 let stream=null,track=null,lenses=[];
 async function startCam(){
  if(stream)stream.getTracks().forEach(t=>t.stop());
- const photo=st.mode==='photo';
+ const photo=st.mode!=='video';
  const video={width:{ideal:photo?3840:1920},height:{ideal:photo?2160:1080},frameRate:{ideal:30}};
  if(st.facing==='environment'&&st.lens)video.deviceId={exact:st.lens};else video.facingMode=st.facing;
  const audio=photo?false:{echoCancellation:false,noiseSuppression:false,autoGainControl:false};
@@ -517,7 +524,11 @@ async function countdown(){for(let i=st.timer;i>0;i--){$('count').textContent=i;
 let busy=false;
 $('shutter').onclick=async()=>{
  if(busy)return;
- if(st.mode==='photo'){
+ if(st.mode==='hdr'){
+  busy=true;if(st.timer)await countdown();
+  try{await captureHDR()}catch(e){showToast('HDR failed: '+(e.message||e),true)}
+  hold=false;geo='';busy=false;$('busy').classList.remove('show');
+ }else if(st.mode==='photo'){
   busy=true;if(st.timer)await countdown();
   const f=$('flash');f.classList.add('go');requestAnimationFrame(()=>requestAnimationFrame(()=>f.classList.remove('go')));
   const lookName=curLook().name;
@@ -526,6 +537,67 @@ $('shutter').onclick=async()=>{
   busy=true;if(st.timer)await countdown();busy=false;startRec();
  }else stopRec();
 };
+/* ---------- HDR: bracket (or stack), align, merge, local tone-map ---------- */
+const LIN=new Float32Array(256).map((_,i)=>Math.pow(i/255,2.2));
+const HAT=new Float32Array(256).map((_,i)=>Math.max(0,1-Math.pow(Math.abs(2*i/255-1),6)));
+const GAM=new Uint8ClampedArray(4096).map((_,i)=>Math.round(Math.pow(i/4095,1/2.2)*255));
+const nextFrame=()=>new Promise(r=>vid.requestVideoFrameCallback?vid.requestVideoFrameCallback(()=>r()):setTimeout(r,45));
+function small(d,W,H){const w=W>>2,h=H>>2,a=new Float32Array(w*h);for(let y=0;y<h;y++)for(let x=0;x<w;x++){const i=((y<<2)*W+(x<<2))*4;a[y*w+x]=.2126*LIN[d[i]]+.7152*LIN[d[i+1]]+.0722*LIN[d[i+2]]}return{a,w,h}}
+function gainOf(ref,cur){const r=[];for(let i=0;i<ref.a.length;i+=7){const p=ref.a[i],q=cur.a[i];if(p>.03&&p<.6&&q>.03&&q<.6)r.push(q/p)}if(r.length<50)return 1;r.sort((a,b)=>a-b);return r[r.length>>1]}
+function align(ref,cur,g){const{w,h}=ref,R=6;let best=1e30,bx=0,by=0;
+ for(let dy=-R;dy<=R;dy++)for(let dx=-R;dx<=R;dx++){let s=0;for(let y=R+2;y<h-R-2;y+=2){const o=y*w,o2=(y+dy)*w+dx;for(let x=R+2;x<w-R-2;x+=2){const p=ref.a[o+x],q=cur.a[o2+x]/g;s+=Math.abs(Math.min(p,.9)-Math.min(q,.9))}}if(s<best){best=s;bx=dx;by=dy}}
+ return[bx*4,by*4]}
+async function captureHDR(){
+ const W=cv.width,H=cv.height,N=W*H;
+ $('busyText').textContent='Hold still…';$('busy').classList.add('show');
+ const c2=document.createElement('canvas');c2.width=W;c2.height=H;const ctx=c2.getContext('2d',{willReadFrequently:true});
+ const grab=async()=>{await nextFrame();ctx.drawImage(vid,hcrop.x,hcrop.y,hcrop.w,hcrop.h,0,0,W,H);return ctx.getImageData(0,0,W,H).data};
+ const caps=track.getCapabilities?track.getCapabilities():{},ec=caps.exposureCompensation;
+ let evs=[0,0,0,0,0,0,0,0];
+ if(ec&&ec.max>ec.min)evs=[0,0,Math.max(ec.min,-2),Math.max(ec.min,-2),Math.min(ec.max,2),Math.min(ec.max,2)];
+ const frames=[];let cur=null;
+ for(const ev of evs){
+  if(ev!==cur){if(ec)try{await track.applyConstraints({advanced:[{exposureCompensation:ev}]});await wait(450)}catch(e){}cur=ev}
+  frames.push(await grab());
+ }
+ if(ec)track.applyConstraints({advanced:[{exposureCompensation:0}]}).catch(()=>{});
+ $('busyText').textContent='Merging…';await wait(30);
+ const ref=small(frames[0],W,H);
+ const rad=new Float32Array(N*3),ws=new Float32Array(N);let gmin=1,gmax=1;
+ frames.forEach((d,fi)=>{
+  const sm=fi?small(d,W,H):ref,g=fi?gainOf(ref,sm):1;gmin=Math.min(gmin,g);gmax=Math.max(gmax,g);
+  const[ox,oy]=fi?align(ref,sm,g):[0,0],floor=Math.abs(g-1)<.25?.02:0;
+  for(let y=0;y<H;y++){const sy=Math.min(H-1,Math.max(0,y+oy));for(let x=0;x<W;x++){
+   const sx=Math.min(W-1,Math.max(0,x+ox)),i=(sy*W+sx)*4,r=d[i],gg=d[i+1],b=d[i+2];
+   const w=Math.max(HAT[Math.max(r,gg,b)],floor),j=y*W+x;
+   rad[j*3]+=LIN[r]/g*w;rad[j*3+1]+=LIN[gg]/g*w;rad[j*3+2]+=LIN[b]/g*w;ws[j]+=w}}
+ });
+ frames.length=0;
+ // local tone-map on log luminance: blurred base gets compressed, detail is kept
+ const s=st.grade.hdr,L=new Float32Array(N),lg=new Float32Array(N);
+ for(let j=0;j<N;j++){const w=ws[j]||1e-6;rad[j*3]/=w;rad[j*3+1]/=w;rad[j*3+2]/=w;L[j]=.2126*rad[j*3]+.7152*rad[j*3+1]+.0722*rad[j*3+2]+1e-5;lg[j]=Math.log2(L[j])}
+ const f=8,lw=Math.ceil(W/f),lh=Math.ceil(H/f);let low=new Float32Array(lw*lh);const cnt=new Float32Array(lw*lh);
+ for(let y=0;y<H;y++)for(let x=0;x<W;x++){const k=((y/f)|0)*lw+((x/f)|0);low[k]+=lg[y*W+x];cnt[k]++}
+ for(let k=0;k<low.length;k++)low[k]/=cnt[k];
+ const blur=(a,horiz)=>{const o=new Float32Array(a.length),r=3;for(let y=0;y<lh;y++)for(let x=0;x<lw;x++){let t=0,n=0;for(let q=-r;q<=r;q++){const xx=horiz?x+q:x,yy=horiz?y:y+q;if(xx>=0&&xx<lw&&yy>=0&&yy<lh){t+=a[yy*lw+xx];n++}}o[y*lw+x]=t/n}return o};
+ for(let p=0;p<3;p++)low=blur(blur(low,true),false);
+ const sorted=Float32Array.from(low).sort(),p1=sorted[(sorted.length*.01)|0],p99=sorted[(sorted.length*.995)|0];
+ let c=Math.min(1,5.5/Math.max(p99-p1,.01));c=1-s*(1-c);const boost=1+.35*s;
+ const out=ctx.createImageData(W,H),o=out.data;
+ for(let y=0;y<H;y++){const fy=Math.min(lh-1.001,Math.max(0,y/f-.5)),y0=fy|0,ty=fy-y0;
+  for(let x=0;x<W;x++){const fx=Math.min(lw-1.001,Math.max(0,x/f-.5)),x0=fx|0,tx=fx-x0,k=y0*lw+x0;
+   const base=(low[k]*(1-tx)+low[k+1]*tx)*(1-ty)+(low[k+lw]*(1-tx)+low[k+lw+1]*tx)*ty;
+   const j=y*W+x,lo=Math.pow(2,(base-p99)*c+(lg[j]-base)*boost),lt=1-Math.exp(-lo*(2.2+1.4*s)),ratio=lt/L[j];
+   for(let ch=0;ch<3;ch++){let v=rad[j*3+ch]*ratio;v=lt+(v-lt)*1.06;o[j*4+ch]=GAM[Math.min(4095,Math.max(0,(v*4095)|0))]}
+   o[j*4+3]=255}}
+ ctx.putImageData(out,0,0);
+ // run the merged image through the selected look, then save
+ hold=true;gl.viewport(0,0,W,H);gl.uniform2f(U.O,0,0);gl.uniform2f(U.S,1,1);
+ gl.texImage2D(gl.TEXTURE_2D,0,gl.RGB,gl.RGB,gl.UNSIGNED_BYTE,c2);setUniforms();gl.drawArrays(gl.TRIANGLE_STRIP,0,4);
+ const blob=await new Promise(r=>cv.toBlob(r,'image/jpeg',.95));
+ if(blob){await store('image',blob);if(st.review&&typeof printPolaroid==='function')printPolaroid(blob,'HDR · '+curLook().name)}
+ showToast(gmax/gmin>2?'HDR: 3 exposures merged':'HDR: 8 frames stacked & tone-mapped');
+}
 function startRec(){
  const cs=cv.captureStream(30);
  stream.getAudioTracks().forEach(t=>cs.addTrack(t));
