@@ -47,6 +47,18 @@ canvas#cv{display:block;background:#000}
 .busy div{background:rgba(0,0,0,.7);padding:12px 18px;border-radius:14px;font-weight:600;display:flex;gap:10px;align-items:center}
 .busy i{width:18px;height:18px;border-radius:50%;border:2px solid #fff;border-right-color:transparent;animation:sp .8s linear infinite}
 @keyframes sp{to{transform:rotate(1turn)}}
+.hed{position:fixed;inset:0;z-index:35;background:#000;display:none;flex-direction:column;padding:env(safe-area-inset-top) 0 env(safe-area-inset-bottom);overflow-y:auto}
+.hed.show{display:flex}
+.hbar{display:flex;justify-content:space-between;align-items:center;padding:8px 14px}
+.hview{position:relative;display:grid;place-items:center;padding:4px 10px}
+.hview canvas{max-width:100%;max-height:52dvh;border-radius:6px;background:#111}
+.hview .tag{position:static;margin-top:8px;white-space:normal;text-align:center}
+.hthumbs{display:flex;gap:8px;overflow-x:auto;padding:10px 14px;scrollbar-width:none}
+.ht{flex:none;display:flex;flex-direction:column;align-items:center;gap:4px;font-size:11px;color:var(--dim)}
+.ht canvas{width:72px;height:48px;border-radius:6px;border:2px solid transparent;background:#222}
+.ht.sel canvas{border-color:var(--ink)}.ht.sel{color:var(--ink)}
+#hsl{padding:0 16px}
+.hfoot{padding:6px 16px 16px}
 .count{position:absolute;inset:0;display:grid;place-items:center;font-size:96px;font-weight:200;pointer-events:none;text-shadow:0 2px 20px #000}
 .zoomtag{opacity:0;transition:opacity .4s}.zoomtag.show{opacity:1}
 .bottom{position:fixed;left:0;right:0;bottom:0;z-index:5;padding:36px env(safe-area-inset-right) calc(12px + env(safe-area-inset-bottom)) env(safe-area-inset-left);
@@ -94,6 +106,24 @@ input[type=range]{width:100%;accent-color:var(--ink);height:28px}
 .gal{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:3px}
 .gal button{aspect-ratio:3/4;overflow:hidden;border-radius:4px;background:#222;position:relative}
 .gal button:active{opacity:.8}
+.gal.table{grid-template-columns:repeat(2,minmax(0,1fr));gap:22px 14px;padding:22px 14px 48px;margin:0 -18px}
+.gal.table button{aspect-ratio:auto;overflow:visible;background:#f7f4ed;padding:8px 8px 0;border-radius:2px;
+ box-shadow:0 1px 0 #fff inset,0 2px 3px rgba(0,0,0,.35),0 14px 26px rgba(0,0,0,.45);transform:translate(var(--x),var(--y)) rotate(var(--r));transition:transform .25s}
+.gal.table button:active{opacity:1;transform:translate(var(--x),var(--y)) rotate(0) scale(1.06);z-index:2}
+.gal.table .ph{position:relative;aspect-ratio:1;overflow:hidden;background:#141310;box-shadow:inset 0 0 0 1px rgba(0,0,0,.18)}
+.gal.table .pc{height:38px;display:flex;align-items:center;justify-content:space-between;gap:6px;padding:0 2px;color:#2a2925;
+ font-family:"Marker Felt","Bradley Hand","Segoe Print","Comic Sans MS",cursive;font-size:14px;white-space:nowrap;overflow:hidden}
+.gal.table .pc span{overflow:hidden;text-overflow:ellipsis}.gal.table .pc small{font-size:11px;color:#7a766d}
+.gal.table .vb{right:6px;bottom:5px}
+.gal.table .empty{color:#e9dcc8;font-family:"Marker Felt","Bradley Hand","Segoe Print",cursive;font-size:18px}
+#galSheet.table .panel{background:
+ radial-gradient(130% 70% at 50% -10%,rgba(255,226,180,.22),transparent 60%),
+ radial-gradient(140% 90% at 50% 120%,rgba(0,0,0,.45),transparent 60%),
+ repeating-linear-gradient(90deg,rgba(0,0,0,.28) 0 2px,transparent 2px 33.333%),
+ repeating-linear-gradient(1deg,rgba(0,0,0,.06) 0 1px,transparent 1px 7px,rgba(255,255,255,.035) 7px 9px,transparent 9px 19px),
+ linear-gradient(90deg,#6c4729,#7a5332 18%,#6a4428 33.3%,#77502f 50%,#694427 66.6%,#7b5433 84%,#6c4729);border-top-color:#8a6340}
+#galSheet.table .panel h2{text-shadow:0 1px 3px rgba(0,0,0,.6)}
+#galSheet.table .note{color:#e3d4bd;text-shadow:0 1px 2px rgba(0,0,0,.6)}
 .galcount{color:var(--dim);font-size:13px;font-weight:500;margin-left:8px}
 /* polaroid review */
 .pr{position:fixed;inset:0;z-index:25;display:none;background:rgba(0,0,0,0);transition:background .45s}
@@ -214,7 +244,7 @@ input[type=range]{width:100%;accent-color:var(--ink);height:28px}
 </div></div>
 
 <div class="sheet" id="galSheet"><div class="panel">
-  <h2><span>Captures<span class="galcount" id="galCount"></span></span> <button class="btn" id="galClose">Close</button></h2>
+  <h2><span>Captures<span class="galcount" id="galCount"></span></span> <span style="display:flex;gap:8px"><button class="btn" id="galView">Grid</button><button class="btn" id="galClose">Close</button></span></h2>
   <div class="gal" id="gal"></div>
   <p class="note">Captures are kept on this phone in this browser. Tap one and use Share → Save to put it in Photos.</p>
 </div></div>
@@ -228,6 +258,13 @@ input[type=range]{width:100%;accent-color:var(--ink);height:28px}
 <div class="pr" id="pr"></div>
 <div class="savebar" id="saveBar"><span id="saveMsg">Saved in the app</span><button class="btn pri" id="saveBtn">Save to Photos</button></div>
 
+<div class="hed" id="hed">
+  <div class="hbar"><button class="btn" id="hCancel">Discard</button><b>Edit HDR</b><button class="btn pri" id="hSave">Save</button></div>
+  <div class="hview"><canvas id="hcv" width="16" height="9"></canvas><span class="tag" id="hInfo"></span></div>
+  <div class="hthumbs" id="hthumbs"></div>
+  <div id="hsl"></div>
+  <div class="hfoot"><button class="btn" id="hBr">Save the brackets too</button><p class="note" id="hNote"></p></div>
+</div>
 <div class="start" id="start">
   <div class="lensart"></div>
   <h1>Dzazlan's Camera</h1>
@@ -487,11 +524,11 @@ function idb(){return db||(db=new Promise((res,rej)=>{const r=indexedDB.open('dz
 async function tx(mode,fn){const d=await idb();return new Promise((res,rej)=>{const t=d.transaction('items',mode),s=t.objectStore('items'),r=fn(s);t.oncomplete=()=>res(r&&r.result);t.onerror=()=>rej(t.error)})}
 const addItem=it=>tx('readwrite',s=>s.add(it)),allItems=()=>tx('readonly',s=>s.getAll()),delItem=id=>tx('readwrite',s=>s.delete(id));
 const mem=[];// fallback if IndexedDB is unavailable
-async function store(type,blob){
+async function store(type,blob,label){
  const now=new Date(),pad=n=>String(n).padStart(2,'0');
  const ext=type==='image'?'jpg':(blob.type.includes('mp4')?'mp4':'webm');
  const name=`Dzazlan_${now.getFullYear()}${pad(now.getMonth()+1)}${pad(now.getDate())}_${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}.${ext}`;
- const it={type,blob,name,t:+now};
+ const it={type,blob,name,t:+now,look:label||((st.mode==='hdr'?'HDR · ':'')+curLook().name)};
  try{it.id=await addItem(it)}catch(e){it.id=-Date.now();mem.push(it)}
  setThumb(it);
  if(st.autosave)saveToPhotos(it);
@@ -560,23 +597,24 @@ async function captureHDR(){
  clip/=ps.a.length;dark/=ps.a.length;
  let bi=0,di=0;for(let i=0;i<G*G;i++){if(blk[i]>blk[bi])bi=i;if(blk[i]<blk[di])di=i}
  const ctr=i=>({x:(hcrop.x+((i%G)+.5)/G*hcrop.w)/vid.videoWidth,y:(hcrop.y+(((i/G)|0)+.5)/G*hcrop.h)/vid.videoHeight});
- const underEV=clip>.002?-Math.min(3,1+clip*25):clip>.0003?-1:0, overEV=dark>.03?Math.min(2.5,1+dark*5):dark>.005?1:0;
- // 2. plan the bracket: dark frame for the windows, normal, bright frame for the shadows
- const plan=[{ev:0}];if(underEV)plan.push({ev:underEV,pt:ctr(bi)});if(overEV)plan.push({ev:overEV,pt:ctr(di)});
- let method='stack';const frames=[pre];
- const setExp=async st2=>{try{
-  if(ec)await track.applyConstraints({advanced:[{exposureCompensation:Math.max(ec.min,Math.min(ec.max,st2.ev))}]});
-  else if(poi)await track.applyConstraints({advanced:[{pointsOfInterest:[st2.pt||{x:.5,y:.5}],exposureMode:em.includes('single-shot')?'single-shot':'continuous'}]});
-  await wait(600);return true}catch(e){return false}};
+ // the dark frame goes well down so window detail survives; the bright one opens up the shadows
+ const underEV=clip>.002?-Math.min(4,2+clip*30):clip>.0003?-1.5:0, overEV=dark>.03?Math.min(2.5,1+dark*5):dark>.005?1:0;
+ const plan=[{ev:0}];if(underEV)plan.push({ev:underEV,pt:ctr(bi),tag:'dark'});if(overEV)plan.push({ev:overEV,pt:ctr(di),tag:'bright'});
+ let method='stack';const frames=[pre],br={normal:pre};
+ const setExp=async p=>{try{
+  if(ec)await track.applyConstraints({advanced:[{exposureCompensation:Math.max(ec.min,Math.min(ec.max,p.ev))}]});
+  else if(poi)await track.applyConstraints({advanced:[{pointsOfInterest:[p.pt||{x:.5,y:.5}],exposureMode:em.includes('single-shot')?'single-shot':'continuous'}]});
+  await wait(650);return true}catch(e){return false}};
  if((ec||poi)&&plan.length>1){
   method=ec?'ev':'meter';
   frames.push(await grab());
-  for(const st2 of plan.slice(1)){$('busyText').textContent=st2.ev<0?'Exposing for the windows…':'Exposing for the shadows…';
-   if(await setExp(st2)){frames.push(await grab());frames.push(await grab())}}
+  for(const p of plan.slice(1)){$('busyText').textContent=p.ev<0?'Exposing for the windows…':'Exposing for the shadows…';
+   if(await setExp(p)){const f=await grab();br[p.tag]=f;frames.push(f);frames.push(await grab())}}
   if(ec)track.applyConstraints({advanced:[{exposureCompensation:0}]}).catch(()=>{});
   else track.applyConstraints({advanced:[{pointsOfInterest:[{x:.5,y:.5}],exposureMode:em.includes('continuous')?'continuous':em[0]}]}).catch(()=>{});
  }else{for(let i=0;i<7;i++)frames.push(await grab())}
  $('busyText').textContent='Merging…';await wait(30);
+ // 2. merge everything into one linear "radiance" image, aligned and weighted by how well exposed each pixel is
  const ref=small(frames[0],W,H);
  const rad=new Float32Array(N*3),ws=new Float32Array(N);let gmin=1,gmax=1;
  frames.forEach((d,fi)=>{
@@ -587,27 +625,33 @@ async function captureHDR(){
    const w=Math.max(HAT[Math.max(r,gg,b)],floor),j=y*W+x;
    rad[j*3]+=LIN[r]/g*w;rad[j*3+1]+=LIN[gg]/g*w;rad[j*3+2]+=LIN[b]/g*w;ws[j]+=w}}
  });
- const frames0=frames.length;frames.length=0;
- // exposure fusion (Mertens): virtual -EV / 0 / +EV versions of the merged frame are blended
- // per region by detail and good exposure, using Laplacian pyramids so seams and halos don't show.
- const s=st.grade.hdr,Yl=new Float32Array(N);
+ const nFrames=frames.length;frames.length=0;
+ const Yl=new Float32Array(N);
  for(let j=0;j<N;j++){const w=ws[j]||1e-6;rad[j*3]/=w;rad[j*3+1]/=w;rad[j*3+2]/=w;Yl[j]=.2126*rad[j*3]+.7152*rad[j*3+1]+.0722*rad[j*3+2]}
- const ENC=new Float32Array(4097).map((_,i)=>Math.pow(i/4096,1/2.2));
- const enc=v=>ENC[v>=1?4096:(v*4096)|0];
- // a darker version only helps when real brackets captured extra highlight detail; from a stack it would just grey out white areas
- // only brighten as much as this scene needs: measure how dark the darker quarter of the frame is
+ const real=gmax/gmin>1.6,stops=Math.log2(gmax/gmin);
  const smp=[];for(let j=0;j<N;j+=13)smp.push(Yl[j]);smp.sort((a,b)=>a-b);const p25=smp[(smp.length*.25)|0];
- const need=Math.min(3,Math.max(0,Math.log2(.045/Math.max(p25,1e-4))))*(.4+.8*s);
- const plus=need>.5?[need/2,need]:need>.15?[need]:[];
- const EVS=(gmax/gmin>1.6?[-(1+s),0]:[0]).concat(plus),K=EVS.length;
- const Ys=EVS.map(ev=>{const g=Math.pow(2,ev),a=new Float32Array(N);for(let j=0;j<N;j++)a[j]=enc(Yl[j]*g);return a});
+ const need=Math.min(3,Math.max(0,Math.log2(.045/Math.max(p25,1e-4)))),s=st.grade.hdr;
+ const info='HDR v5 · '+(real?'bracketed '+(method==='ev'?'by exposure':'by metering window & shadows')+' · '+nFrames+' frames · '+stops.toFixed(1)+' stops':
+  method==='stack'?(ec||poi?'stacked · scene needed no bracket':'stacked · Safari gave no exposure control'):'stacked · camera ignored the exposure change')+(clip>.002?' · '+(clip*100).toFixed(1)+'% blown':'');
+ hdrLast={rad,Yl,W,H,real,br,info,P:{win:real?.7:.15,sh:Math.min(1,need/3*(.6+.6*s)),exp:0,con:.4}};
+ $('busy').classList.remove('show');
+ await openEditor();
+}
+// render the merged radiance with the editor's settings: exposure fusion (Mertens) of virtual exposures + levels + colour
+async function renderHDR(src,P){
+ const{rad,Yl,W,H,real}=src,N=W*H,gain=Math.pow(2,P.exp);
+ const ENC=new Float32Array(4097).map((_,i)=>Math.pow(i/4096,1/2.2)),enc=v=>ENC[v>=1?4096:(v*4096)|0];
+ const top=.6+2.6*P.sh,EVS=(P.win>.02?[-(.5+3.5*P.win)]:[]).concat([0]).concat(P.sh>.02?[top/2,top]:[]),K=EVS.length;
+ const Ys=EVS.map(ev=>{const g=Math.pow(2,ev)*gain,a=new Float32Array(N);
+  // where every frame was blown out there's no detail to recover, so keep it white instead of turning it grey
+  for(let j=0;j<N;j++)a[j]=ev<0&&!real&&Yl[j]>=.85?1:enc(Yl[j]*g);return a});
  const Ws=Ys.map(Y=>{const a=new Float32Array(N);
   for(let y=0;y<H;y++)for(let x=0;x<W;x++){const j=y*W+x,v=Y[j];
    const lap=Math.abs(4*v-Y[y?j-W:j]-Y[y<H-1?j+W:j]-Y[x?j-1:j]-Y[x<W-1?j+1:j]);
-   const e=Math.exp(-(v-.5)*(v-.5)/.08);a[j]=(lap+.012)*e+1e-7}return a});
+   a[j]=(lap+.012)*Math.exp(-(v-.5)*(v-.5)/.08)+1e-7}return a});
  for(let j=0;j<N;j++){let t=0;for(let k=0;k<K;k++)t+=Ws[k][j];for(let k=0;k<K;k++)Ws[k][j]/=t}
  const down=(a,w,h)=>{const w2=(w+1)>>1,h2=(h+1)>>1,t=new Float32Array(w2*h),o=new Float32Array(w2*h2);
-  for(let y=0;y<h;y++){const r=y*w;for(let i=0;i<w2;i++){const x=i*2,a0=a[r+Math.max(x-2,0)],a1=a[r+Math.max(x-1,0)],a3=a[r+Math.min(x+1,w-1)],a4=a[r+Math.min(x+2,w-1)];t[y*w2+i]=(a0+4*a1+6*a[r+x]+4*a3+a4)/16}}
+  for(let y=0;y<h;y++){const r=y*w;for(let i=0;i<w2;i++){const x=i*2;t[y*w2+i]=(a[r+Math.max(x-2,0)]+4*a[r+Math.max(x-1,0)]+6*a[r+x]+4*a[r+Math.min(x+1,w-1)]+a[r+Math.min(x+2,w-1)])/16}}
   for(let i=0;i<h2;i++){const y=i*2,r0=Math.max(y-2,0)*w2,r1=Math.max(y-1,0)*w2,r2=y*w2,r3=Math.min(y+1,h-1)*w2,r4=Math.min(y+2,h-1)*w2;for(let x=0;x<w2;x++)o[i*w2+x]=(t[r0+x]+4*t[r1+x]+6*t[r2+x]+4*t[r3+x]+t[r4+x])/16}
   return{a:o,w:w2,h:h2}};
  const up=(c,w,h)=>{const o=new Float32Array(w*h),cw=c.w,chh=c.h,ca=c.a;
@@ -620,28 +664,66 @@ async function captureHDR(){
  for(let k=0;k<K;k++){const GY=gauss(Ys[k]),GW=gauss(Ws[k]);
   for(let l=0;l<nl;l++){const g=GY[l],u=l<nl-1?up(GY[l+1],g.w,g.h):null,fa=F[l].a,wa=GW[l].a;
    for(let i=0;i<fa.length;i++)fa[i]+=wa[i]*(u?g.a[i]-u[i]:g.a[i])}
-  Ys[k]=null;Ws[k]=null;await wait(0)}
+  Ys[k]=null;Ws[k]=null;if(N>1e6)await wait(0)}
  let R=F[nl-1].a;for(let l=nl-2;l>=0;l--){const u=up({a:R,w:F[l+1].w,h:F[l+1].h},F[l].w,F[l].h),fa=F[l].a;for(let i=0;i<fa.length;i++)u[i]+=fa[i];R=u}
- // clear any haze: set black and white points from the fused result, then a gentle contrast curve
  {const q=[];for(let j=0;j<N;j+=11)q.push(R[j]);q.sort((a,b)=>a-b);
-  const b0=Math.min(.04,Math.max(0,q[(q.length*.003)|0]-.01)),w0=Math.max(.85,q[(q.length*.998)|0]),k=1/(w0-b0),cs=plus.length?.14*s:0;
+  const b0=Math.min(.04,Math.max(0,q[(q.length*.003)|0]-.01)),w0=Math.max(.85,q[(q.length*.998)|0]),k=1/(w0-b0),cs=P.con*.35;
   for(let j=0;j<N;j++){let v=Math.min(1,Math.max(0,(R[j]-b0)*k));R[j]=v+cs*(v*v*(3-2*v)-v)}}
- // put colour back: scale linear RGB to the fused luminance, roll bright colours toward white instead of clipping
- const out=ctx.createImageData(W,H),o=out.data;
+ const out=new ImageData(W,H),o=out.data;
  for(let j=0;j<N;j++){const yo=Math.pow(Math.min(1,Math.max(0,R[j])),2.2),ratio=yo/Math.max(Yl[j],1e-6);
   let r=rad[j*3]*ratio,g=rad[j*3+1]*ratio,b=rad[j*3+2]*ratio;const m=Math.max(r,g,b);
   if(m>1){const t=Math.min(1,(m-1)/m);r+=(yo-r)*t;g+=(yo-g)*t;b+=(yo-b)*t;const m2=Math.max(r,g,b);if(m2>1){r/=m2;g/=m2;b/=m2}}
   o[j*4]=GAM[Math.max(0,(r*4095)|0)];o[j*4+1]=GAM[Math.max(0,(g*4095)|0)];o[j*4+2]=GAM[Math.max(0,(b*4095)|0)];o[j*4+3]=255}
- ctx.putImageData(out,0,0);
- // run the merged image through the selected look, then save
- hold=true;gl.viewport(0,0,W,H);gl.uniform2f(U.O,0,0);gl.uniform2f(U.S,1,1);
- gl.texImage2D(gl.TEXTURE_2D,0,gl.RGB,gl.RGB,gl.UNSIGNED_BYTE,c2);hdrPass=true;setUniforms();hdrPass=false;gl.drawArrays(gl.TRIANGLE_STRIP,0,4);
- const blob=await new Promise(r=>cv.toBlob(r,'image/jpeg',.95));
- if(blob){await store('image',blob);if(st.review&&typeof printPolaroid==='function')printPolaroid(blob,'HDR · '+curLook().name)}
- const real=gmax/gmin>1.6;
- showToast('HDR v4 · '+(real?'bracketed '+(method==='ev'?'by exposure':'by metering window & shadows')+' ('+frames0+' frames, '+Math.log2(gmax/gmin).toFixed(1)+' stops)':
-  method==='stack'?(ec||poi?'stacked · scene needed no bracket':'stacked · Safari gave no exposure control'):'stacked · camera ignored the exposure change')+(clip>.002?' · '+(clip*100).toFixed(1)+'% blown':''));
+ return out;
 }
+// draw an image through the current film look on the GL canvas (camera preview is paused while the editor is open)
+function lookTo(img){const c=document.createElement('canvas');c.width=img.width;c.height=img.height;c.getContext('2d').putImageData(img,0,0);
+ hold=true;if(cv.width!==c.width||cv.height!==c.height){cv.width=c.width;cv.height=c.height}
+ gl.viewport(0,0,c.width,c.height);gl.uniform2f(U.O,0,0);gl.uniform2f(U.S,1,1);
+ gl.texImage2D(gl.TEXTURE_2D,0,gl.RGB,gl.RGB,gl.UNSIGNED_BYTE,c);hdrPass=true;setUniforms();hdrPass=false;gl.drawArrays(gl.TRIANGLE_STRIP,0,4);return cv}
+function shrink(src,max){const f=Math.max(1,Math.ceil(Math.max(src.W,src.H)/max));if(f===1)return src;
+ const W=(src.W/f)|0,H=(src.H/f)|0,rad=new Float32Array(W*H*3),Yl=new Float32Array(W*H),n=f*f;
+ for(let y=0;y<H;y++)for(let x=0;x<W;x++){let r=0,g=0,b=0,l=0;for(let dy=0;dy<f;dy++)for(let dx=0;dx<f;dx++){const j=(y*f+dy)*src.W+x*f+dx;r+=src.rad[j*3];g+=src.rad[j*3+1];b+=src.rad[j*3+2];l+=src.Yl[j]}
+  const k=y*W+x;rad[k*3]=r/n;rad[k*3+1]=g/n;rad[k*3+2]=b/n;Yl[k]=l/n}
+ return{rad,Yl,W,H,real:src.real}}
+let hdrLast=null,hedPrev=null,hedView='merged',hedBusy=false,hedAgain=false;
+const HSL=[['win','Windows','Recover bright windows and lamps'],['sh','Shadows','Open up dark corners'],['exp','Exposure',''],['con','Contrast','']];
+async function openEditor(){
+ const h=hdrLast;hedPrev=shrink(h,900);hedView='merged';
+ const hc=$('hcv');hc.width=hedPrev.W;hc.height=hedPrev.H;
+ $('hInfo').textContent=h.info;
+ $('hsl').innerHTML=HSL.map(([k,n])=>`<div class="sl"><label for="h_${k}">${n}</label><input type="range" id="h_${k}" min="${k==='exp'?-1.5:0}" max="${k==='exp'?1.5:1}" step=".01" value="${h.P[k]}"><output id="ho_${k}"></output></div>`).join('');
+ const thumbs=[['merged','Merged']].concat(['dark','normal','bright'].filter(k=>h.br[k]).map(k=>[k,{dark:'Dark',normal:'Normal',bright:'Bright'}[k]]));
+ $('hthumbs').innerHTML=thumbs.map(([k,n])=>`<button class="ht${k==='merged'?' sel':''}" data-k="${k}"><canvas width="96" height="64"></canvas><span>${n}</span></button>`).join('');
+ [...$('hthumbs').querySelectorAll('.ht')].forEach(b=>{if(b.dataset.k!=='merged')drawBracket(b.dataset.k,b.querySelector('canvas'))});
+ $('hBr').style.display=Object.keys(h.br).length>1?'':'none';
+ $('hNote').textContent=h.real?'Real brackets: Windows uses detail from the dark frame.':'Safari did not take real brackets, so fully white areas cannot get detail back. Windows still tames bright areas that are not pure white.';
+ syncH();$('hed').classList.add('show');await hedRender();
+}
+function syncH(){HSL.forEach(([k])=>{$('ho_'+k).textContent=k==='exp'?(hdrLast.P.exp>0?'+':'')+hdrLast.P.exp.toFixed(1):Math.round(hdrLast.P[k]*100)})}
+function drawBracket(k,c){const h=hdrLast,t=document.createElement('canvas');t.width=h.W;t.height=h.H;const img=new ImageData(h.W,h.H);img.data.set(h.br[k]);t.getContext('2d').putImageData(img,0,0);
+ const x=c.getContext('2d'),r=Math.max(c.width/h.W,c.height/h.H);x.drawImage(t,(c.width-h.W*r)/2,(c.height-h.H*r)/2,h.W*r,h.H*r)}
+async function hedRender(){
+ if(hedBusy){hedAgain=true;return}hedBusy=true;
+ do{hedAgain=false;const hc=$('hcv'),x=hc.getContext('2d');
+  if(hedView==='merged'){const img=await renderHDR(hedPrev,hdrLast.P);x.drawImage(lookTo(img),0,0,hc.width,hc.height);const mt=$('hthumbs').querySelector('[data-k=merged] canvas');if(mt){const m=mt.getContext('2d'),r=Math.max(mt.width/hc.width,mt.height/hc.height);m.drawImage(hc,(mt.width-hc.width*r)/2,(mt.height-hc.height*r)/2,hc.width*r,hc.height*r)}}
+  else{x.clearRect(0,0,hc.width,hc.height);drawBracket(hedView,hc)}
+ }while(hedAgain);hedBusy=false}
+$('hsl').oninput=e=>{const k=e.target.id.slice(2);hdrLast.P[k]=+e.target.value;syncH();if(hedView!=='merged')selView('merged');hedRender()};
+function selView(k){hedView=k;[...$('hthumbs').querySelectorAll('.ht')].forEach(b=>b.classList.toggle('sel',b.dataset.k===k))}
+$('hthumbs').onclick=e=>{const b=e.target.closest('.ht');if(!b)return;selView(b.dataset.k);hedRender()};
+function closeEditor(){$('hed').classList.remove('show');hdrLast=null;hedPrev=null;hold=false;geo=''}
+$('hCancel').onclick=closeEditor;
+$('hSave').onclick=async()=>{
+ const h=hdrLast;$('busyText').textContent='Saving full size…';$('busy').classList.add('show');$('hed').classList.remove('show');await wait(30);
+ try{const img=await renderHDR(h,h.P);lookTo(img);const blob=await new Promise(r=>cv.toBlob(r,'image/jpeg',.95));
+  if(blob){await store('image',blob);if(st.review&&typeof printPolaroid==='function')printPolaroid(blob,'HDR · '+curLook().name)}
+  showToast('HDR saved')}catch(e){showToast('Save failed: '+(e.message||e),true)}
+ $('busy').classList.remove('show');closeEditor()};
+$('hBr').onclick=async()=>{const h=hdrLast,t=document.createElement('canvas');t.width=h.W;t.height=h.H;const x=t.getContext('2d');let n=0;
+ for(const k of ['dark','normal','bright'])if(h.br[k]){const img=new ImageData(h.W,h.H);img.data.set(h.br[k]);x.putImageData(img,0,0);
+  const b=await new Promise(r=>t.toBlob(r,'image/jpeg',.95));if(b){await store('image',b,{dark:'Dark bracket',normal:'Normal bracket',bright:'Bright bracket'}[k]);n++;await wait(1100)}}
+ showToast(n+' brackets saved to Captures')};
 function startRec(){
  const cs=cv.captureStream(30);
  stream.getAudioTracks().forEach(t=>cs.addTrack(t));
@@ -714,12 +796,20 @@ let urls=[],cur=null;
 $('thumb').onclick=openGal;
 async function openGal(){
  const list=await items();urls.forEach(URL.revokeObjectURL);urls=[];
- $('gal').innerHTML=list.length?list.map((it,i)=>{const u=URL.createObjectURL(it.blob);urls.push(u);return `<button data-i="${i}">${it.type==='image'?`<img src="${u}" alt="">`:`<video src="${u}#t=0.1" muted playsinline preload="metadata"></video><span class="vb">▶</span>`}</button>`}).join(''):'<div class="empty" style="grid-column:1/-1">No captures yet</div>';
+ const table=st.galView!=='grid',rnd=n=>{const x=Math.sin(n*12.9898)*43758.5453;return x-Math.floor(x)};
+ $('galSheet').classList.toggle('table',table);$('gal').classList.toggle('table',table);$('galView').textContent=table?'Grid':'Table';
+ $('gal').innerHTML=list.length?list.map((it,i)=>{const u=URL.createObjectURL(it.blob);urls.push(u);
+  const media=it.type==='image'?`<img src="${u}" alt="">`:`<video src="${u}#t=0.1" muted playsinline preload="metadata"></video><span class="vb">▶</span>`;
+  if(!table)return `<button data-i="${i}">${media}</button>`;
+  const k=Math.abs(it.id||i)+i*.37,d=new Date(it.t).toLocaleDateString(undefined,{day:'numeric',month:'short'});
+  return `<button data-i="${i}" style="--r:${(rnd(k)*12-6).toFixed(1)}deg;--x:${(rnd(k+1)*12-6).toFixed(0)}px;--y:${(rnd(k+2)*10-5).toFixed(0)}px"><div class="ph">${media}</div><div class="pc"><span>${it.look||(it.type==='image'?'Photo':'Video')}</span><small>${d}</small></div></button>`}).join(''):
+  `<div class="empty" style="grid-column:1/-1">${table?'Nothing on the table yet':'No captures yet'}</div>`;
  $('galCount').textContent=list.length?String(list.length):'';
  $('gal').onclick=e=>{const b=e.target.closest('button');if(b)openViewer(list[+b.dataset.i],urls[+b.dataset.i])};
  $('galSheet').classList.add('show');
 }
 $('galClose').onclick=()=>$('galSheet').classList.remove('show');
+$('galView').onclick=()=>{st.galView=st.galView==='grid'?'table':'grid';save();openGal()};
 function openViewer(it,u){cur=it;$('vMedia').innerHTML=it.type==='image'?`<img src="${u}" alt="">`:`<video src="${u}" controls playsinline autoplay preload="auto"></video>`;$('viewer').classList.add('show')}
 $('vClose').onclick=$('vBack').onclick=()=>{$('viewer').classList.remove('show');$('vMedia').innerHTML=''};
 $('vShare').onclick=()=>shareItem(cur).catch(()=>{});
